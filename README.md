@@ -145,6 +145,31 @@ Net Sharpe by year:
 | 2023 | **2.99** | 2.36 | 1.99 | 2.12 | 2.08 |
 | 2024 | **1.34** | 0.77 | 0.23 | −0.21 | −0.19 |
 
+### Cross-universe robustness — [notebook 05](notebooks/05_robustness_tw_btc.ipynb)
+
+Same 12 features, same XGB ranker, re-trained on Taiwan 0050 (50 names) and
+on a hard-coded universe of 20 liquid USDT pairs on Binance (2018–2025,
+OOS 2022–2024).
+
+| Universe | XGB IC-IR | XGB Net Sharpe | `naive_ew` IC-IR | `naive_ew` Net Sharpe |
+|---|---|---|---|---|
+| US (502 names, 2020–2024) | +0.20 | +0.87 | +0.11 | +0.43 |
+| TW 0050 (50 names, 2020–2024) | **+0.27** | +0.43 | +0.06 | +0.18 |
+| BTC-uni (20 names, 2022–2024) | +0.12 | +0.52 | **−0.39** | **−0.25** |
+
+The key observation is the `naive_ew` failure on BTC: the three handmade
+features (small-ADV long, high-vol long, short-term reversal long) carry
+*wrong* signs on crypto — small tokens under-perform, low-vol wins, momentum
+beats reversal. The XGB ranker learns the sign flips at training time and
+still posts positive IC-IR. Universe size (20 vs 500 names) matters less
+than the sign structure of the underlying market.
+
+A secondary finding: TW's IC-IR (+0.27) is actually the **strongest** of
+the three universes, but the 49 bps round-trip `TW_EQUITY` cost (vs 5 bps
+one-way on US) takes the Sharpe from 0.71 gross to 0.43 net — a 40%
+haircut vs 6% on US. The signal is real but the cost structure of
+Taiwanese equities makes monthly-rebalance quintile L/S infeasible.
+
 ## Failure modes
 
 1. **2022 is a shared negative-Sharpe regime for every model in the study.**
@@ -198,12 +223,14 @@ ml-cross-sectional/
 │   ├── build_01_feature_eda.py          # Notebook sources (re-run to regenerate)
 │   ├── build_02_training_walkforward.py
 │   ├── build_03_shap_analysis.py
-│   └── build_04_backtest.py
+│   ├── build_04_backtest.py
+│   └── build_05_robustness_tw_btc.py
 ├── notebooks/
 │   ├── 01_feature_eda.ipynb
 │   ├── 02_training_walkforward.ipynb
 │   ├── 03_shap_analysis.ipynb
-│   └── 04_backtest.ipynb
+│   ├── 04_backtest.ipynb
+│   └── 05_robustness_tw_btc.ipynb
 └── reports/
     ├── figures/                # committed; referenced from README + notebooks
     └── predictions/            # OOS score parquet used by 03 and 04
@@ -246,13 +273,23 @@ git-installed copy with an editable local one.
 - Gu, S., Kelly, B., & Xiu, D. (2020). Empirical asset pricing via machine
   learning. *Review of Financial Studies*, 33(5), 2223–2273.
   [doi:10.1093/rfs/hhaa009](https://doi.org/10.1093/rfs/hhaa009) — benchmark
-  study showing tree ensembles and neural networks outperform linear
-  baselines on monthly US equity returns. Our single-model scope is a
-  simplified, post-cost version of their experimental design.
+  comparison of linear vs tree vs neural-network forecasters for monthly
+  US equity returns. This repo is **not** a direct reimplementation —
+  we (i) predict cross-sectional rank via `LGBMRanker` / `XGBRanker`
+  rather than absolute next-month return, (ii) use a 12-feature
+  OHLCV-only set rather than their ~94 firm characteristics plus 8
+  macro predictors, and (iii) emphasise post-cost evaluation over the
+  OOS R² focus in the paper. An absolute-return regression study on the
+  same universe aligned more closely with GKX is the subject of the
+  companion Repo 5 (`ml-return-forecast`).
 - López de Prado, M. (2018). *Advances in financial machine learning*.
-  Wiley. Chapters 7–8 on walk-forward and combinatorial cross-validation
-  — the expanding-window yearly-retrain scheme used here is the simplest
-  of the schemes discussed there.
+  Wiley. Chapter 7 argues that financial cross-validation should use
+  purging + embargo (with CPCV as the recommended scheme). We use plain
+  expanding-window annual walk-forward with **no purging** —
+  justifiable at a 21-day target horizon and annual retrain (the
+  gain from purging is dwarfed by fold-to-fold IC noise), but a
+  deliberate deviation from the book's recommendation that a
+  production setup should revisit.
 
 **Feature attribution**
 - Lundberg, S. M., & Lee, S.-I. (2017). A unified approach to interpreting
