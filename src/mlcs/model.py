@@ -185,13 +185,24 @@ class XGBRankerModel(BaseRanker):
 
 @dataclass
 class EqualWeightBaseline(BaseRanker):
-    """Equal-weight sum of z-scored classic signals that had positive IC-IR
-    in 01_feature_eda (size_adv_60, vol_60d, reversal_1w).
+    """Equal-weight sum of z-scored classic signals — the "can the ML model
+    beat handmade?" yardstick per plan.md.
 
-    Serves as "can the model beat handmade?" yardstick per plan.md.
+    The default picks up the features that had positive IC-IR in
+    01_feature_eda. `signs` lets callers invert a feature (e.g. use
+    +low_vol_60 but -vol_20d) without forking the class.
     """
     features: tuple[str, ...] = ("size_adv_60", "vol_60d", "reversal_1w")
+    signs: tuple[float, ...] | None = None
     name: str = "naive_ew"
+
+    def __post_init__(self):
+        if self.signs is None:
+            self.signs = tuple(1.0 for _ in self.features)
+        elif len(self.signs) != len(self.features):
+            raise ValueError(
+                f"signs length {len(self.signs)} != features length {len(self.features)}"
+            )
 
     def fit(self, X, y, dates):
         return self
@@ -199,4 +210,5 @@ class EqualWeightBaseline(BaseRanker):
     def predict(self, X, dates):
         sub = X[list(self.features)]
         z = cs_zscore(sub, dates).fillna(0.0)
-        return z.sum(axis=1).values
+        signed = z.values * np.asarray(self.signs, dtype=float)
+        return signed.sum(axis=1)
