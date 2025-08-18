@@ -49,15 +49,24 @@ def main() -> None:
     print("Building feature panel...")
     features = build_feature_panel(close, volume)
 
+    # capture model feature columns BEFORE the target columns are attached —
+    # otherwise the NaN filter below would also consider fwd_ret_* / fwd_rank_*
+    # and pass through rows that have a label but no features.
+    model_feature_cols = [c for c in features.columns if c not in ("date", "symbol")]
+
     print(f"Attaching forward {args.horizon}-day target...")
     features = add_forward_target(features, close, horizon=args.horizon)
 
-    # drop rows where every feature is NaN (pre-warmup) — keep partial-NaN rows
-    # so the model can handle missingness itself (LightGBM does)
-    feature_cols = [c for c in features.columns if c not in ("date", "symbol")]
+    # require at least half of the model features to be present; pure-NaN and
+    # near-empty rows (early warmup) are dropped, but we keep partial-NaN rows
+    # so LightGBM can handle missingness itself.
+    min_coverage = max(1, int(0.5 * len(model_feature_cols)))
     before = len(features)
-    features = features.dropna(subset=feature_cols, how="all")
-    print(f"  {len(features):,} rows ({before - len(features):,} dropped as all-NaN)")
+    features = features.dropna(subset=model_feature_cols, thresh=min_coverage)
+    print(
+        f"  {len(features):,} rows ({before - len(features):,} dropped: "
+        f"<{min_coverage}/{len(model_feature_cols)} features present)"
+    )
 
     PROC_DIR.mkdir(parents=True, exist_ok=True)
     stem = raw_path.stem.replace("sp500_ohlcv_", "")
