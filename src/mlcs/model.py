@@ -120,7 +120,11 @@ class LGBMRankerModel(BaseRanker):
     def fit(self, X, y, dates):
         d = pd.to_datetime(dates)
         labels = _decile_labels(y, d, n_bins=self.n_bins)
-        mask = X.notna().any(axis=1) & labels.notna()
+        # require at least half the features to be present — any(axis=1) would
+        # admit rows with a single non-NaN feature, which are near-useless for
+        # a cross-sectional ranker and add noise to the pairwise objective.
+        min_feats = max(1, X.shape[1] // 2)
+        mask = (X.notna().sum(axis=1) >= min_feats) & labels.notna()
         # rank boosters need rows sorted by group, with contiguous groups
         order = np.argsort(d[mask].values, kind="mergesort")
         Xs = X.loc[mask].iloc[order]
@@ -161,7 +165,8 @@ class XGBRankerModel(BaseRanker):
     def fit(self, X, y, dates):
         d = pd.to_datetime(dates)
         labels = _decile_labels(y, d, n_bins=self.n_bins)
-        mask = X.notna().any(axis=1) & labels.notna()
+        min_feats = max(1, X.shape[1] // 2)
+        mask = (X.notna().sum(axis=1) >= min_feats) & labels.notna()
         order = np.argsort(d[mask].values, kind="mergesort")
         Xs = X.loc[mask].iloc[order]
         ys = labels.loc[mask].iloc[order].astype(int).values
