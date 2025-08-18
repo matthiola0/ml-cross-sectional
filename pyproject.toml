@@ -7,7 +7,7 @@ name = "ml-cross-sectional"
 version = "0.1.0"
 description = "LightGBM cross-sectional stock ranking on S&P 500 with walk-forward validation and SHAP"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
     "qtools @ git+https://github.com/matthiola0/qtools.git@v0.3.0",
     "lightgbm>=4.3",
@@ -29,7 +29,7 @@ packages = ["src/mlcs"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "B"]
