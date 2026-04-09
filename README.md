@@ -1,5 +1,7 @@
 # ml-cross-sectional
 
+> **Languages**: **English** · [繁體中文](docs/README.zh-TW.md)
+
 LightGBM and XGBoost cross-sectional stock-ranking models on the S&P 500, with
 walk-forward validation, SHAP attribution, and a costed long-short backtest.
 
